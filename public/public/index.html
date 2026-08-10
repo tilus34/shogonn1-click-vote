@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SHOGONN1 - הצבעה בלחיצה</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <div class="brand">SHOGONN1 — הצבעה על המסך</div>
+      <div class="status" id="status">מתחבר…</div>
+    </div>
+
+    <div class="video-shell" id="shell">
+      <iframe
+        src="https://player.kick.com/shogonn1?autoplay=true&muted=true"
+        allow="autoplay; fullscreen"
+        allowfullscreen>
+      </iframe>
+      <div class="click-layer" id="clickLayer" aria-label="Voting layer"></div>
+    </div>
+
+    <p class="note">
+      לחץ על המקום במסך שאתה רוצה לבחור. הבחירה שלך תיעלם אוטומטית אחרי 10 שניות.
+    </p>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const layer = document.getElementById("clickLayer");
+    const status = document.getElementById("status");
+
+    let marker = null;
+    let markerTimer = null;
+    let currentState = null;
+
+    function removeMarker() {
+      if (marker) {
+        marker.remove();
+        marker = null;
+      }
+      if (markerTimer) {
+        clearTimeout(markerTimer);
+        markerTimer = null;
+      }
+    }
+
+    function setStatus(s) {
+      currentState = s;
+      status.textContent = s.active
+        ? `סיבוב ${s.round} • ${s.totalVotes} הצבעות`
+        : `ההצבעה נעצרה • ${s.totalVotes} הצבעות`;
+
+      layer.style.pointerEvents = s.active ? "auto" : "none";
+      layer.style.opacity = s.active ? "1" : ".55";
+
+      // If the vote no longer exists on the server, also remove the local marker.
+      if (s.totalVotes === 0) {
+        removeMarker();
+      }
+    }
+
+    socket.on("connect", () => status.textContent = "מחובר");
+    socket.on("disconnect", () => {
+      status.textContent = "נותק — מנסה להתחבר…";
+      removeMarker();
+    });
+    socket.on("state", setStatus);
+
+    layer.addEventListener("pointerdown", (e) => {
+      if (!currentState || !currentState.active) return;
+
+      const r = layer.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width;
+      const y = (e.clientY - r.top) / r.height;
+
+      socket.emit("vote", { x, y });
+
+      removeMarker();
+
+      marker = document.createElement("div");
+      marker.className = "marker";
+      layer.appendChild(marker);
+
+      marker.style.left = `${x * 100}%`;
+      marker.style.top = `${y * 100}%`;
+
+      // Local visual marker disappears after 10 seconds.
+      markerTimer = setTimeout(removeMarker, 10000);
+    });
+  </script>
+</body>
+</html>
