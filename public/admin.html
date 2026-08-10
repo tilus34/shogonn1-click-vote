@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SHOGONN1 - ניהול הצבעה</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="page">
+    <div class="card">
+      <h1 style="margin-top:0">ניהול הצבעה</h1>
+      <p id="status">מתחבר…</p>
+      <div class="admin-actions">
+        <button id="toggle">עצור / המשך הצבעה</button>
+        <button id="reset">סיבוב חדש + איפוס</button>
+      </div>
+      <p class="note">
+        OBS Browser Source: פתח את <b>/overlay.html</b> ברוחב 1920 ובגובה 1080.
+      </p>
+    </div>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const status = document.getElementById("status");
+    socket.on("state", s => {
+      status.textContent = `סיבוב ${s.round} • ${s.totalVotes} הצבעות • ${s.active ? "פעיל" : "עצור"}`;
+    });
+    document.getElementById("toggle").onclick = () => socket.emit("admin:toggle");
+    document.getElementById("reset").onclick = () => socket.emit("admin:reset");
+  </script>
+</body>
+</html>

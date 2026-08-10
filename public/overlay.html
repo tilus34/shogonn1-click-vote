@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="he">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SHOGONN1 OBS Overlay</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>html,body{background:transparent!important;overflow:hidden}</style>
+</head>
+<body>
+  <div class="overlay-root" id="root">
+    <div class="overlay-status" id="status">0 votes</div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const root = document.getElementById("root");
+    const status = document.getElementById("status");
+
+    // Divide the screen into a grid. Nearby votes become one percentage bubble.
+    // Change these if you want more/fewer hotspots.
+    const COLS = 10;
+    const ROWS = 6;
+    const MAX_BUBBLES = 8;
+
+    function aggregate(clicks) {
+      const cells = new Map();
+      for (const v of clicks) {
+        const cx = Math.min(COLS - 1, Math.floor(v.x * COLS));
+        const cy = Math.min(ROWS - 1, Math.floor(v.y * ROWS));
+        const key = `${cx}:${cy}`;
+        if (!cells.has(key)) cells.set(key, { count:0, sx:0, sy:0 });
+        const c = cells.get(key);
+        c.count++;
+        c.sx += v.x;
+        c.sy += v.y;
+      }
+      return [...cells.values()]
+        .map(c => ({
+          count:c.count,
+          x:c.sx/c.count,
+          y:c.sy/c.count
+        }))
+        .sort((a,b) => b.count-a.count)
+        .slice(0, MAX_BUBBLES);
+    }
+
+    function render(s) {
+      root.querySelectorAll(".bubble").forEach(el => el.remove());
+      const total = s.clicks.length;
+      status.textContent = `${s.active ? "LIVE" : "PAUSED"} • ${total} votes`;
+
+      if (!total) return;
+      for (const group of aggregate(s.clicks)) {
+        const el = document.createElement("div");
+        el.className = "bubble";
+        el.style.left = `${group.x * 100}%`;
+        el.style.top = `${group.y * 100}%`;
+        el.textContent = `${Math.round(group.count / total * 100)}%`;
+        root.appendChild(el);
+      }
+    }
+
+    socket.on("state", render);
+  </script>
+</body>
+</html>
